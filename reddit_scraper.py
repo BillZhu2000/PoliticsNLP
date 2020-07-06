@@ -2,12 +2,12 @@
 Code for scraping Reddit data using PushShift.io instead of normal praw (Python Reddit API wrapper) due to size
 constraints imposed by Reddit after they moved off of cloudsearch
 """
+import datetime as dt
 import re
+import time
 
 import pandas as pd
 import requests
-import time
-import datetime as dt
 from nltk.stem import WordNetLemmatizer
 
 
@@ -90,5 +90,3 @@ def clean_text(raw):
 
     # Return clean words and join with space
     return " ".join(words)
-
-

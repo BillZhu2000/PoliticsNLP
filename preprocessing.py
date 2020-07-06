@@ -2,14 +2,12 @@
 Preprocessing utilities
 """
 
-import numpy as np
-import pandas as pd
-import nltk
-from nltk.corpus import words, stopwords
-from nltk.stem import WordNetLemmatizer
 import os
 import re
 import string
+
+import pandas as pd
+from nltk.stem import WordNetLemmatizer
 
 
 def drop_punc(text):
@@ -28,7 +26,7 @@ def remove_numbers(text):
     :param text:
     :return:
     """
-    text = re.sub('\w*\d\w*', '', text)
+    text = re.sub(r'\w*\d\w*', '', text)
     return text
 
 
@@ -82,16 +80,14 @@ def prep_df(df):
     df.reset_index(drop=True, inplace=True)
 
     # Remove hyperlinks and \n line breaks from selftext
-    for i in range(0, len(df)):
-        df.loc[i, 'selftext'] = re.sub('(http)\S*', ' ', str(df.loc[i, 'selftext']))
-        df.loc[i, 'selftext'] = re.sub('\\n', ' ', str(df.loc[i, 'selftext']))
-        df.loc[i, 'selftext'] = re.sub('\[(link)\]', ' ', str(df.loc[i, 'selftext']))
-        df.loc[i, 'selftext'] = re.sub('(&gt)', ' ', str(df.loc[i, 'selftext']))
+    df['selftext'] = pd.Series([re.sub(r'(http)\S*', ' ', elem) for elem in df['selftext']])
+    df['selftext'] = pd.Series([re.sub('\\n', ' ', elem) for elem in df['selftext']])
+    df['selftext'] = pd.Series([re.sub(r'\[(link)\]', ' ', elem) for elem in df['selftext']])
+    df['selftext'] = pd.Series([re.sub('(&gt)', ' ', elem) for elem in df['selftext']])
 
     # Clean title & selftext
-    for i in range(0, len(df)):
-        df.loc[i, 'title'] = clean_text(str(df.loc[i, 'title']))
-        df.loc[i, 'selftext'] = clean_text(str(df.loc[i, 'selftext']))
+    df['title'] = pd.Series([clean_text(str(elem)) for elem in df['title']])
+    df['selftext'] = pd.Series([clean_text(str(elem)) for elem in df['selftext']])
 
     # Create one combined_text column to clean
     df['combined_text'] = df['title'] + " " + df['selftext']
@@ -129,3 +125,7 @@ def main():
     df = label_load_data(file_dir, df)
     df = prep_df(df)
     df.to_csv('')
+
+
+if __name__ == '__main__':
+    main()
