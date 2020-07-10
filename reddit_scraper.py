@@ -29,7 +29,7 @@ def query_pushshift(subreddit, kind='submission', skip=30, times=10, subfield=No
     if subfield is None:
         subfield = ['title', 'selftext', 'subreddit', 'created_utc', 'author', 'num_comments', 'score',
                     'is_self']
-    stem = "https://api.pushshift.io/reddit/search/{}/?subreddit={}&size=500".format(kind, subreddit)
+    stem = "https://api.pushshift.io/reddit/search/{}/?subreddit={}&size=1000".format(kind, subreddit)
     mylist = []
 
     # Create for loop from 1 to times (specified in )

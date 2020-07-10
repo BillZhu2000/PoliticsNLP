@@ -13,9 +13,16 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 from preprocessing import prep_df
 
 # Necessary code to allow GPU to run
-config = tf.compat.v1.ConfigProto()
-config.gpu_options.allow_growth = True
-session = tf.compat.v1.Session(config=config)
+# config = tf.compat.v1.ConfigProto()
+# config.gpu_options.allow_growth = True
+# session = tf.compat.v1.Session(config=config)
+physical_devices = tf.config.experimental.list_physical_devices('GPU')
+try:
+    tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
+    tf.config.set_soft_device_placement(enabled=False)
+    # assert tf.config.experimental.get_memory_growth(physical_devices[0])
+except AssertionError:
+    pass
 
 
 def load_data(file_name):
@@ -40,7 +47,7 @@ def plot_graphs(history, string):
     :return:
     """
     plt.plot(history.history[string])
-    plt.plot(history.history('val_' + string))
+    plt.plot(history.history['val_' + string])
     plt.xlabel('Epochs')
     plt.ylabel(string)
     plt.legend([string, 'val_' + string])
@@ -50,14 +57,14 @@ def plot_graphs(history, string):
 def main():
     # intiailize params and defaults
     vocab_size = 10000
-    embedding_dim = 64
+    embedding_dim = 32
     max_length = 120
     trunc_type = 'post'
     oov_tok = "<OOV>"
 
     # Train against republicans and democrats
-    democrat = load_data('Democrats.csv')
-    republican = load_data('Republican.csv')
+    democrat = load_data('Communism.csv')
+    republican = load_data('Socialism.csv')
     democrat['label'] = 0
     republican['label'] = 1
     comb_df = pd.DataFrame()
@@ -78,17 +85,39 @@ def main():
 
     # Build model, currently multiple bidirectional LSTMs
     model = tf.keras.Sequential([
-        tf.keras.layers.Embedding(vocab_size, embedding_dim, input_length=max_length),
+        tf.keras.layers.Embedding(len(word_index), embedding_dim, input_length=max_length),
+        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
+        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
+        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
+        tf.keras.layers.Dropout(0.1),
         tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
+        tf.keras.layers.Dropout(0.1),
         tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(32)),
-        tf.keras.layers.Dense(64, activation='relu'),
+        tf.keras.layers.Dense(128, activation='relu'),
+        tf.keras.layers.Dropout(0.1),
         tf.keras.layers.Dense(1, activation='sigmoid')
     ])
+
+    # Convolution model
+    # model = tf.keras.Sequential([
+    #     tf.keras.layers.Embedding(len(word_index), embedding_dim, input_length=max_length),
+    #     tf.keras.layers.Conv1D(256, 5, activation='relu'),
+    #     tf.keras.layers.MaxPooling1D(),
+    #     tf.keras.layers.Dropout(0.25),
+    #     tf.keras.layers.Conv1D(128, 5, activation='relu'),
+    #     tf.keras.layers.MaxPooling1D(),
+    #     tf.keras.layers.Dropout(0.25),
+    #     tf.keras.layers.Conv1D(64, 5, activation='relu'),
+    #     tf.keras.layers.GlobalAveragePooling1D(),
+    #     tf.keras.layers.Dense(24, activation='relu'),
+    #     tf.keras.layers.Dense(1, activation='sigmoid')
+    # ])
+
     print(model.summary())
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'], run_eagerly=True)
 
     NUM_EPOCHS = 10
-    history = model.fit(padded, y_train, epochs=NUM_EPOCHS, validation_data=(testing_padded, y_test))
+    history = model.fit(padded, y_train, epochs=NUM_EPOCHS, validation_data=(testing_padded, y_test), batch_size=30)
     plot_graphs(history, 'accuracy')
     plot_graphs(history, 'loss')
 
