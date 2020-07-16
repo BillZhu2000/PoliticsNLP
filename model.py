@@ -7,15 +7,13 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
+from tensorflow.keras import backend as K
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.preprocessing.text import Tokenizer
 
 from preprocessing import prep_df
 
 # Necessary code to allow GPU to run
-# config = tf.compat.v1.ConfigProto()
-# config.gpu_options.allow_growth = True
-# session = tf.compat.v1.Session(config=config)
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 try:
     tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
@@ -54,7 +52,53 @@ def plot_graphs(history, string):
     plt.show()
 
 
+def recall_m(y_true, y_pred):
+    """
+    Calculate recall for batch
+
+    :param y_true: Actual y value
+    :param y_pred: Calculated y value
+    :return:
+    """
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+    recall = true_positives / (possible_positives + K.epsilon())
+    return recall
+
+
+def precision_m(y_true, y_pred):
+    """
+    Calculate precision for batch
+
+    :param y_true:
+    :param y_pred:
+    :return:
+    """
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+    precision = true_positives / (predicted_positives + K.epsilon())
+    return precision
+
+
+def f1_m(y_true, y_pred):
+    """
+    Calculate F1 measure for batch
+
+    :param y_true:
+    :param y_pred:
+    :return:
+    """
+    precision = precision_m(y_true, y_pred)
+    recall = recall_m(y_true, y_pred)
+    return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
+
+
 def main():
+    """
+    Build and train model
+
+    :return:
+    """
     # intiailize params and defaults
     vocab_size = 10000
     embedding_dim = 32
@@ -63,8 +107,8 @@ def main():
     oov_tok = "<OOV>"
 
     # Train against republicans and democrats
-    democrat = load_data('Communism.csv')
-    republican = load_data('Socialism.csv')
+    democrat = load_data('Democrats.csv')
+    republican = load_data('politics.csv')
     democrat['label'] = 0
     republican['label'] = 1
     comb_df = pd.DataFrame()
@@ -88,13 +132,11 @@ def main():
         tf.keras.layers.Embedding(len(word_index), embedding_dim, input_length=max_length),
         tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
         tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
         tf.keras.layers.Dropout(0.1),
         tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
         tf.keras.layers.Dropout(0.1),
         tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(32)),
-        tf.keras.layers.Dense(128, activation='relu'),
-        tf.keras.layers.Dropout(0.1),
+        tf.keras.layers.Dense(64, activation='relu'),
         tf.keras.layers.Dense(1, activation='sigmoid')
     ])
 
@@ -114,12 +156,16 @@ def main():
     # ])
 
     print(model.summary())
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'], run_eagerly=True)
+    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy', precision_m, recall_m, f1_m],
+                  run_eagerly=True)
 
     NUM_EPOCHS = 10
     history = model.fit(padded, y_train, epochs=NUM_EPOCHS, validation_data=(testing_padded, y_test), batch_size=30)
     plot_graphs(history, 'accuracy')
     plot_graphs(history, 'loss')
+    plot_graphs(history, 'precision_m')
+    plot_graphs(history, 'recall_m')
+    plot_graphs(history, 'f1_m')
 
 
 if __name__ == '__main__':

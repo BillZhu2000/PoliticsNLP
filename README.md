@@ -6,4 +6,6 @@ is to classify submissions and see where they fall on the political spectrum. Bo
 will be used to see if there are any unusual patterns.
 
 Currently, ```model.py``` is configured to train on reddit subreddit data and classify between two different subreddits 
-based on title alone. 
+based on title alone. Currently, differentiating between Republicans and Democrats gets around 75% accuracy, while between
+Socialism and Communism, two very similar subreddits, is at ~65 to 68, which is still substantially better than 50% baseline
+(i.e. flipping a coin).
