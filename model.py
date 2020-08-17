@@ -13,12 +13,16 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 
 from preprocessing import prep_df
 
+
+# Suppress TF warnings
+tf.get_logger().setLevel('INFO')
+
 # Necessary code to allow GPU to run
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 try:
     tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
-    tf.config.set_soft_device_placement(enabled=False)
-    # assert tf.config.experimental.get_memory_growth(physical_devices[0])
+    # tf.config.set_soft_device_placement(enabled=False)
+    assert tf.config.experimental.get_memory_growth(physical_devices[0])
 except AssertionError:
     pass
 
@@ -100,8 +104,8 @@ def main():
     :return:
     """
     # intiailize params and defaults
-    vocab_size = 10000
-    embedding_dim = 32
+    vocab_size = 100000
+    embedding_dim = 64
     max_length = 120
     trunc_type = 'post'
     oov_tok = "<OOV>"
@@ -118,7 +122,7 @@ def main():
     # prep train and test sets
     X = np.array(comb_df['title'])
     y = np.array(comb_df['label'])
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
     tokenizer = Tokenizer(num_words=vocab_size, oov_token=oov_tok)
     tokenizer.fit_on_texts(X_train)
     word_index = tokenizer.word_index
@@ -129,14 +133,14 @@ def main():
 
     # Build model, currently multiple bidirectional LSTMs
     model = tf.keras.Sequential([
-        tf.keras.layers.Embedding(len(word_index), embedding_dim, input_length=max_length),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
-        tf.keras.layers.Dropout(0.1),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
-        tf.keras.layers.Dropout(0.1),
+        tf.keras.layers.Embedding(vocab_size, embedding_dim, input_length=max_length),
+        tf.keras.layers.Conv1D(filters=64, kernel_size=3, strides=1, activation='relu', dropout=0.5),
+        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True, dropout=0.5)),
+        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True, dropout=0.5)),
+        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.5)),
         tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(32)),
-        tf.keras.layers.Dense(64, activation='relu'),
+        tf.keras.layers.Dense(1024, activation='relu', dropout=0.5),
+        tf.keras.layers.Dense(512, activation='relu'),
         tf.keras.layers.Dense(1, activation='sigmoid')
     ])
 
@@ -156,11 +160,11 @@ def main():
     # ])
 
     print(model.summary())
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy', precision_m, recall_m, f1_m],
+    model.compile(loss='binary_crossentropy', optimizer='adamax', metrics=['accuracy', precision_m, recall_m, f1_m],
                   run_eagerly=True)
 
     NUM_EPOCHS = 10
-    history = model.fit(padded, y_train, epochs=NUM_EPOCHS, validation_data=(testing_padded, y_test), batch_size=30)
+    history = model.fit(padded, y_train, epochs=NUM_EPOCHS, validation_data=(testing_padded, y_test), batch_size=50)
     plot_graphs(history, 'accuracy')
     plot_graphs(history, 'loss')
     plot_graphs(history, 'precision_m')
